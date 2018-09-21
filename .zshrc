@@ -100,3 +100,5 @@ export PATH="/usr/local/sbin:$PATH"
 
 # alias for managing dotfile
 alias dotfiles='/usr/bin/git --git-dir=$HOME/dotfiles --work-tree=$HOME'
+
+export PYTHONSTARTUP="$HOME/.pythonrc"
