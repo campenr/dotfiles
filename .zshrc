@@ -2,7 +2,7 @@
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
-export ZSH="/home/campenr/.oh-my-zsh"
+export ZSH="/home/$(whoami)/.oh-my-zsh"
 
 # Set name of the theme to load. Optionally, if you set this to "random"
 # it'll load a random theme each time that oh-my-zsh is loaded.
@@ -100,3 +100,9 @@ export PATH="/usr/local/sbin:$PATH"
 
 # alias for managing dotfile
 alias dotfiles='/usr/bin/git --git-dir=$HOME/dotfiles --work-tree=$HOME'
+
+# tmux aliases
+alias tl='tmux ls'
+alias tn='f() { tmux new -s $1 };f'
+alias ta='f() { tmux a -t $1 };f'
+
