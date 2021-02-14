@@ -1,40 +1,46 @@
-set nocompatible              " be iMproved, required
-filetype off                  " required
+set number                    "  show numbers
+set relativenumber            "  and have numbers relative to current position
+set nocompatible              "  be iMproved, required
+set autoread                  "  detect when a file has changed
+set tabstop=4                 "  tabs are four spaces
+set expandtab                 "  no really.
+set shiftwidth=4              "  so are shifts
 
-"" CtrlP customisation
-" remove limit on how many files to search against
-let g:ctrlp_max_files=0
-let g:ctrlp_custom_ignore = 'node_modules\|DS_Store\|git\|__pycache__'
 
-" set the runtime path to include Vundle and initialize
+"""""""""""
+" Plugins "
+"""""""""""
+
 set rtp+=~/.vim/bundle/Vundle.vim
 call vundle#begin()
-" alternatively, pass a path where Vundle should install plugins
-"call vundle#begin('~/some/path/here')
 
-" let Vundle manage Vundle, required
+" let Vundle manage Vundle
 Plugin 'VundleVim/Vundle.vim'
 
+" general awesomeness
 Plugin 'tpope/vim-fugitive'
 Plugin 'preservim/nerdtree'
 Plugin 'ctrlpvim/ctrlp.vim'
 
-" All of your Plugins must be added before the following line
-call vundle#end()            " required
-filetype plugin indent on    " required
-" To ignore plugin indent changes, instead use:
-"filetype plugin on
-"
-" Brief help
-" :PluginList       - lists configured plugins
-" :PluginInstall    - installs plugins; append `!` to update or just
-" :PluginUpdate
-" :PluginSearch foo - searches for foo; append `!` to refresh local cache
-" :PluginClean      - confirms removal of unused plugins; append `!` to
-" auto-approve removal
-"
-" see :h vundle for more details or wiki for FAQ
-" Put your non-Plugin stuff after this line
+" themeing
+Plugin 'chriskempson/base16-vim'
+
+call vundle#end()
+filetype plugin indent on
+
+
+"""""""""
+" CtrlP "
+"""""""""
+
+" remove limit on how many files to search against
+let g:ctrlp_max_files=0
+let g:ctrlp_custom_ignore = 'node_modules\|DS_Store\|git\|__pycache__'
+
+
+""""""""""""
+" NERDTree "
+""""""""""""
 
 " Start NERDTree. If a file is specified, move the cursor to its window.
 autocmd StdinReadPre * let s:std_in=1
