@@ -100,6 +100,8 @@ export PATH="$HOME/.poetry/bin:$PATH"
 export NVM_DIR=~/.nvm
  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 export PATH="/usr/local/sbin:$PATH"
+export NODE_VERSIONS="${NVM_DIR}/versions/node"
+export NODE_VERSION_PREFIX="v"
 
 # alias for managing dotfile
 alias dotfiles='/usr/bin/git --git-dir=$HOME/dotfiles --work-tree=$HOME'
@@ -108,4 +110,17 @@ alias dotfiles='/usr/bin/git --git-dir=$HOME/dotfiles --work-tree=$HOME'
 alias tl='tmux ls'
 alias tn='f() { tmux new -s $1 };f'
 alias ta='f() { tmux a -t $1 };f'
+
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/$(whoami)/google-cloud-sdk/path.zsh.inc' ]; then . '/home/$(whoami)/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/$(whoami)/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/$(whoami)/google-cloud-sdk/completion.zsh.inc'; fi
+
+# enable direnv
+eval "$(direnv hook zsh)"
+
+# alias for babi
+alias nano=babi
 
