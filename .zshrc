@@ -88,8 +88,8 @@ source $ZSH/oh-my-zsh.sh
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
 
-# ssh
-export SSH_KEY_PATH="~/.ssh/campenr_rsa_id"
+# python
+export PYTHONSTARTUP="$HOME/.pythonrc"
 
 # poetry
 export PATH="$HOME/.poetry/bin:$PATH"
@@ -129,6 +129,9 @@ eval "$(direnv hook zsh)"
 
 # alias for babi
 alias nano=babi
+
+# Created by `pipx` on 2023-01-21 07:06:56
+export PATH="$PATH:$HOME/.local/bin"
 
 # terraform things
 autoload -U +X bashcompinit && bashcompinit
