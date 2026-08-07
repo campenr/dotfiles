@@ -133,6 +133,15 @@ alias nano=babi
 # Created by `pipx` on 2023-01-21 07:06:56
 export PATH="$PATH:$HOME/.local/bin"
 
+export PYENV_ROOT="$HOME/.pyenv"
+command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+export WORKON_HOME=$HOME/.virtualenvs
+pyenv virtualenvwrapper
+
+# Colour-named git worktrees (`kwt`).
+[[ ! -f ~/.worktree.zsh ]] || source ~/.worktree.zsh
+
 # terraform things
 autoload -U +X bashcompinit && bashcompinit
 complete -o nospace -C /usr/bin/terraform terraform
