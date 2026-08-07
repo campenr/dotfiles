@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+#
+# Create (if needed) and locate colour-named git worktrees for any repo.
+#
+# Four permanent worktrees live under <repo>/.claude/worktrees/, named red,
+# green, blue and yellow. The *directory* is permanent; the branch checked out
+# in it rotates as work comes and goes. Inside a worktree, git behaves
+# normally -- start work with `git switch -c my-branch origin/<default>`.
+#
+# Usage, run from anywhere inside a git repo:
+#   kwt-create <colour>   create if missing, then print the worktree path
+#   kwt-create --list     print "<colour> <branch>" for each colour
+#   kwt-create --colours  print the valid colour names
+#
+# Only the resulting path goes to stdout, so callers can cd to it; all
+# diagnostics go to stderr. The zsh `kwt` function in ~/.worktree.zsh wraps
+# this to change directory, which a child process cannot do for its parent.
+#
+# This script is deliberately callable by both humans and coding agents --
+# agents do not load ~/.zshrc, so shell functions are invisible to them.
+
+set -euo pipefail
+
+COLOURS=(red green blue yellow)
+
+die() { printf 'kwt: %s\n' "$1" >&2; exit 1; }
+note() { printf 'kwt: %s\n' "$1" >&2; }
+
+# Absolute path of the primary checkout, resolved even from a nested directory
+# or from inside one of the worktrees (--git-common-dir gives the shared .git).
+repo_root() {
+    local common
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+        || die "not inside a git repository"
+    dirname "$common"
+}
+
+# Prefer the remote's own idea of its default branch over guessing master/main.
+default_ref() {
+    local head
+    if head=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null); then
+        printf '%s' "${head#refs/remotes/}"
+        return 0
+    fi
+    local candidate
+    for candidate in origin/main origin/master; do
+        if git rev-parse --verify --quiet "$candidate" >/dev/null; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done
+    die "cannot determine the default branch; set origin/HEAD"
+}
+
+# A directory nested inside the repo is NOT necessarily a worktree: git commands
+# run inside it fall through to the enclosing repo and cheerfully report the
+# primary's branch. An interrupted `git worktree add` leaves exactly that trap.
+# Compare the directory's own toplevel against itself to tell them apart.
+is_worktree() {
+    local tree="$1"
+    [[ -e "$tree/.git" ]] || return 1
+    [[ "$(git -C "$tree" rev-parse --path-format=absolute --show-toplevel 2>/dev/null)" \
+        == "$tree" ]]
+}
+
+# Repos other than kraken-core do not gitignore .claude/worktrees/, which would
+# leave the trees showing as untracked. info/exclude is local to the clone, so
+# this never touches the repo's own .gitignore.
+ensure_excluded() {
+    local root="$1" exclude="$1/.git/info/exclude"
+    git -C "$root" check-ignore -q .claude/worktrees && return 0
+    mkdir -p "$(dirname "$exclude")"
+    printf '\n# Colour-named worktrees created by kwt-create\n/.claude/worktrees/\n' \
+        >>"$exclude"
+    note "added /.claude/worktrees/ to $(basename "$root")/.git/info/exclude"
+}
+
+# Untracked files a fresh checkout needs but git will not provide. Keyed on
+# repo name; a repo with no case here simply gets a plain checkout.
+# Idempotent, so it can be re-run to repair a tree made by hand. Only reports
+# the links it actually had to create, to stay quiet on the common path.
+seed() {
+    local root="$1" tree="$2" added=()
+
+    case "$(basename "$root")" in
+        kraken-core)
+            # Test settings hard-assert this exists (src/tests/settings/_mixins.py).
+            # Symlinked, not copied, so there is one source of truth for secrets.
+            if [[ ! -e "$tree/data/env" ]]; then
+                mkdir -p "$tree/data"
+                ln -s "$root/data/env" "$tree/data/env"
+                added+=(data/env)
+            fi
+
+            # The shared pre-commit hook runs --config=.pre-commit-config.yaml
+            # without --allow-missing-config, so commits fail without this.
+            # Relative, matching the primary checkout, so it resolves in-tree.
+            if [[ ! -e "$tree/.pre-commit-config.yaml" ]]; then
+                ln -s .pre-commit-config.default.yaml "$tree/.pre-commit-config.yaml"
+                added+=(.pre-commit-config.yaml)
+            fi
+            ;;
+    esac
+
+    [[ ${#added[@]} -eq 0 ]] || note "seeded $(basename "$tree"): ${added[*]}"
+}
+
+case "${1-}" in
+    --colours|--colors)
+        printf '%s\n' "${COLOURS[@]}"
+        exit 0
+        ;;
+    --list)
+        root=$(repo_root)
+        for colour in "${COLOURS[@]}"; do
+            tree="$root/.claude/worktrees/$colour"
+            if is_worktree "$tree"; then
+                if branch=$(git -C "$tree" symbolic-ref --quiet --short HEAD 2>/dev/null); then
+                    printf '%-7s %s\n' "$colour" "$branch"
+                else
+                    printf '%-7s detached at %s\n' "$colour" \
+                        "$(git -C "$tree" rev-parse --short HEAD 2>/dev/null)"
+                fi
+            elif [[ -d "$tree" ]]; then
+                printf '%-7s (directory exists but is NOT a worktree)\n' "$colour"
+            else
+                printf '%-7s (not created)\n' "$colour"
+            fi
+        done
+        exit 0
+        ;;
+    "")
+        die "usage: kwt-create <${COLOURS[*]}> | --list | --colours"
+        ;;
+esac
+
+colour="$1"
+valid=false
+for candidate in "${COLOURS[@]}"; do
+    [[ "$candidate" == "$colour" ]] && valid=true
+done
+$valid || die "unknown worktree '$colour' (expected one of: ${COLOURS[*]})"
+
+root=$(repo_root)
+tree="$root/.claude/worktrees/$colour"
+
+if is_worktree "$tree"; then
+    # Already present. Seeding is idempotent, so re-run it to repair a tree
+    # created by hand or by an earlier version of this script.
+    seed "$root" "$tree"
+else
+    [[ -d "$tree" ]] && die \
+        "$tree exists but is not a worktree (likely an interrupted 'git worktree add'). Remove it, then retry."
+
+    ref=$(default_ref)
+    note "creating $colour worktree in $(basename "$root") from $ref"
+
+    # Base new trees on the remote tip; local default branches drift behind.
+    # Being offline is not fatal, we just use the last fetched state.
+    git -C "$root" fetch --quiet origin "${ref#origin/}" \
+        || note "fetch failed, using last fetched $ref"
+
+    ensure_excluded "$root"
+    mkdir -p "$root/.claude/worktrees"
+
+    # Detached, so the tree consumes no branch name and starts at the tip.
+    git -C "$root" worktree add --detach "$tree" "$ref" >&2
+
+    seed "$root" "$tree"
+    note "$colour ready -- start work with: git switch -c my-branch $ref"
+fi
+
+printf '%s\n' "$tree"
